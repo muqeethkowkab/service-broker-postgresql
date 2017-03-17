@@ -2,11 +2,11 @@
 timeout: 60
 instances: 1
 memory: 512M
-buildpack: java_buildpack
+buildpack: java_buildpack_offline
 env:
-    SPRING_PROFILES_ACTIVE: cloud
-    JAVA_OPTS: -Djava.security.password=password
-
+  SPRING_PROFILES_ACTIVE: cloud
+  java.security.password: password
+  MASTER_JDBC_URL: jdbc:postgresql://10.0.18.14:5432/sandbox?user=pgadmin&password=password
 applications:
-- name: postgresql-cf-service-broker
-  path: target/postgresql-cf-service-broker-2.8.0-SNAPSHOT.jar
+- name: ksb-postgresql
+  path: target/postgresql-cf-service-broker-2.9.0-SNAPSHOT.jar
