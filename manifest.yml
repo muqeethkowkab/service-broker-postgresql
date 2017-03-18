@@ -9,4 +9,4 @@ env:
   MASTER_JDBC_URL: jdbc:postgresql://10.0.18.14:5432/sandbox?user=pgadmin&password=password
 applications:
 - name: ksb-postgresql
-  path: target/postgresql-cf-service-broker-2.9.0-SNAPSHOT.jar
+  path: target/postgresql-cf-service-broker-3.0.0-SNAPSHOT.jar

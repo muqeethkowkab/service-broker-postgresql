@@ -110,15 +110,17 @@ public class PostgreSQLDatabase {
     }
 
 
-    public void createRoleForInstance(String instanceId) throws SQLException {
+    public void createRoleForInstance(String instanceId, String bindingId) throws SQLException {
         Utils.checkValidUUID(instanceId);
-        executeUpdate("CREATE ROLE \"" + instanceId + "\"");
-        executeUpdate("ALTER DATABASE \"" + instanceId + "\" OWNER TO \"" + instanceId + "\"");
+        Utils.checkValidUUID(bindingId);
+        executeUpdate("CREATE ROLE \"" + bindingId + "\"");
+        //executeUpdate("ALTER DATABASE \"" + instanceId + "\" OWNER TO \"" + instanceId + "\"");
+        executeUpdate("GRANT ALL ON DATABASE \"" + instanceId + "\" TO \"" + bindingId + "\"");
     }
 
-    public void deleteRole(String instanceId) throws SQLException {
-        Utils.checkValidUUID(instanceId);
-        executeUpdate("DROP ROLE IF EXISTS \"" + instanceId + "\"");
+    public void deleteRole(String bindingId) throws SQLException {
+        Utils.checkValidUUID(bindingId);
+        executeUpdate("DROP ROLE IF EXISTS \"" + bindingId + "\"");
     }
 
     /**
@@ -127,26 +129,29 @@ public class PostgreSQLDatabase {
      * @return
      * @throws Exception
      */
-    public String bindRoleToDatabase(String serviceInstanceId) throws Exception {
+    public String bindRoleToDatabase(String serviceInstanceId, String bindingId) throws Exception {
         Utils.checkValidUUID(serviceInstanceId);
+        Utils.checkValidUUID(bindingId);
 
         SecureRandom random = new SecureRandom();
         String passwd = new BigInteger(130, random).toString(32);
 
-        executeUpdate("ALTER ROLE \"" + serviceInstanceId + "\" LOGIN password '" + passwd + "'");
+        executeUpdate("ALTER ROLE \"" + bindingId + "\" LOGIN password '" + passwd + "'");
 
         URI uri = new URI(jdbcTemplate.getDataSource().getConnection().getMetaData().getURL().replace("jdbc:", ""));
 
         String dbURL = String.format("postgres://%s:%s@%s:%d/%s",
-                serviceInstanceId, passwd,
+        		bindingId, passwd,
                 uri.getHost(), uri.getPort() == -1 ? 5432 : uri.getPort(), serviceInstanceId);
 
         return dbURL;
     }
 
-    public void unBindRoleFromDatabase(String dbInstanceId) throws SQLException{
+    public void unBindRoleFromDatabase(String dbInstanceId, String bindingId) throws SQLException{
         Utils.checkValidUUID(dbInstanceId);
-        executeUpdate("ALTER ROLE \"" + dbInstanceId + "\" NOLOGIN");
+        Utils.checkValidUUID(bindingId);
+        executeUpdate("ALTER ROLE \"" + bindingId + "\" NOLOGIN");
+        executeUpdate("REVOKE ALL ON  DATABASE \"" + dbInstanceId + "\" FROM \"" + bindingId + "\"");
     }
     /**
      *
