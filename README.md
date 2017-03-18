@@ -5,7 +5,7 @@ The broker currently publishes a single service and plan for provisioning Postgr
 This is using PostgreSQL jdbc driver 42 for PostgreSQL 9.
 
 `This is a fork ! March 2017`
-The project was forked on March 2017 (see github) because upstream where using a deprecated CC API not working with PCF 1.9+ or had serious issues in service binding (https://github.com/avasseur-pivotal/postgresql-cf-service-broker/issues/7).
+The project was forked on March 2017 (see github) because upstream were using a deprecated CC API not working with PCF 1.9+ or had serious issues in service binding (https://github.com/avasseur-pivotal/postgresql-cf-service-broker/issues/7).
 
 ## Design
 
