@@ -5,7 +5,7 @@ memory: 512M
 buildpack: java_buildpack_offline
 env:
   SPRING_PROFILES_ACTIVE: cloud
-  java.security.password: password
+  security.user.password: password
   MASTER_JDBC_URL: jdbc:postgresql://10.0.18.14:5432/sandbox?user=pgadmin&password=password
 applications:
 - name: ksb-postgresql
