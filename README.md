@@ -7,6 +7,11 @@ This is using PostgreSQL jdbc driver 42 for PostgreSQL 9.
 `This is a fork ! March 2017`
 The project was forked on March 2017 (see github) because upstream were using a deprecated CC API not working with PCF 1.9+ or had serious issues in service binding (https://github.com/avasseur-pivotal/postgresql-cf-service-broker/issues/7).
 
+## Combining with a PostgreSQL BOSH release
+
+Refer to <a href="bosh/README.md">bosh</a> subfolder.
+
+
 ## Design
 
 The broker uses a PostgreSQL table for it's meta data. It does not maintain an internal database so it has no dependencies besides PostgreSQL.

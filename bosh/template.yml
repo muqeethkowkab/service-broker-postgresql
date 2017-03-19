@@ -1,0 +1,60 @@
+# Hit ctrl-space for auto-complete
+---
+name: alex-postgresql
+
+director_uuid: ((director_uuid))
+
+releases:
+- name: postgres
+  version: latest
+
+stemcells:
+- alias: trusty
+  os: ubuntu-trusty
+  version: latest
+
+instance_groups:
+- name: postgres
+  instances: 1
+  vm_type: ((vm_type))
+  persistent_disk_type: ((persistent_disk_type))
+  stemcell: trusty
+  azs: ((azs))
+  networks:
+    - name: ((network_name))
+      default: [dns, gateway]
+      #static_ips: ((nginx.static_ips))
+  lifecycle: service
+  jobs:
+  - name: postgres
+    release: postgres
+  properties:
+#    databases: ((postgres.local_properties))
+    databases:
+#        address: (( jobs.postgres.networks.default.static_ips.[0] ))
+        port: 5432
+        databases:
+        - name: sandbox
+          citext: true
+        roles:
+        - name: pgadmin
+          password: password
+          permissions:
+          - CREATEDB
+          - CREATEROLE
+#         tag: admin
+#        - name: pgother
+#          password: other
+#          tag: other
+#          permissions:
+#          - CONNECTION LIMIT 10
+  env:
+    bosh:
+      password: ((vm_password))
+
+update:
+  canaries: 1
+  max_in_flight: 32
+  canary_watch_time: 1000-30000
+  update_watch_time: 1000-30000
+  serial: false
