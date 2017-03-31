@@ -126,7 +126,7 @@ public class PostgreSQLDatabase {
     public void createRoleForInstance(String instanceId) throws SQLException {
         Utils.checkValidUUID(instanceId);
         executeUpdate("CREATE ROLE \"" + instanceId + "\"");
-        executeUpdate("GRANT  \"" + instanceId + "\" to \"pgadmin\"");
+        //executeUpdate("GRANT  \"" + instanceId + "\" to \"pgadmin\"");
         executeUpdate("GRANT ALL ON DATABASE \"" + instanceId + "\" TO \"" + instanceId + "\"");        
 
       // fork a connection
