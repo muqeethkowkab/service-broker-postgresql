@@ -60,7 +60,7 @@ public class PostgreSQLServiceInstanceService implements ServiceInstanceService 
 
             // TODO - we could optionally have a cf cs param for a service-level user
             // instead of binding-level user
-            //postgresDB.createRoleForInstance(serviceInstanceId);
+            // -- this is now in createDatabaseForInstance for hack multibinding postgresDB.createRoleForInstance(serviceInstanceId);
 
         } catch (SQLException e) {
             logger.error("Error while creating service instance '" + serviceInstanceId + "'", e);
@@ -83,7 +83,7 @@ public class PostgreSQLServiceInstanceService implements ServiceInstanceService 
         try {
 
             postgresDB.deleteDatabase(serviceInstanceId);
-            //postgresDB.deleteRole(serviceInstanceId);
+            postgresDB.deleteRole(serviceInstanceId);
 
         } catch (SQLException e) {
             logger.info("Error while deleting service instance '" + serviceInstanceId + "'", e);

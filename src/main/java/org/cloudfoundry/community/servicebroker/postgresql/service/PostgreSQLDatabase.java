@@ -4,8 +4,11 @@ import org.cloudfoundry.community.servicebroker.postgresql.model.PGServiceInstan
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.servicebroker.model.ServiceInstance;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -25,10 +28,13 @@ public class PostgreSQLDatabase {
     private static final Logger logger = LoggerFactory.getLogger(PostgreSQLDatabase.class);
 
     private JdbcTemplate jdbcTemplate;
+    
+    @Value("${MASTER_JDBC_URL}")
+    private String jdbcUrl;
+
 
     @Autowired
     public PostgreSQLDatabase(JdbcTemplate jdbcTemplate) {
-
         this.jdbcTemplate = jdbcTemplate;
     }
 
@@ -38,7 +44,8 @@ public class PostgreSQLDatabase {
                 + " servicedefinitionid varchar(200) not null default '',"
                 + " planid varchar(200) not null default '',"
                 + " organizationguid varchar(200) not null default '',"
-                + " spaceguid varchar(200) not null default '')";
+                + " spaceguid varchar(200) not null default '',"
+                + " creds varchar(32) not null default '')";
 
         jdbcTemplate.execute(serviceTable);
     }
@@ -49,15 +56,21 @@ public class PostgreSQLDatabase {
         executeUpdate("CREATE DATABASE \"" + instanceId + "\" ENCODING 'UTF8'");
         executeUpdate("REVOKE all on database \"" + instanceId + "\" from public");
 
+        SecureRandom random = new SecureRandom();
+        String passwd = new BigInteger(130, random).toString(32);
+        createRoleForInstance(instanceId);
+        executeUpdate("ALTER ROLE \"" + instanceId + "\" LOGIN password '" + passwd + "'");
+
         Map<Integer, String> parameterMap = new HashMap<Integer, String>();
         parameterMap.put(1, instanceId);
         parameterMap.put(2, serviceId);
         parameterMap.put(3, planId);
         parameterMap.put(4, organizationGuid);
         parameterMap.put(5, spaceGuid);
-
+        parameterMap.put(6, passwd);
+        
         executePreparedUpdate("INSERT INTO service (serviceinstanceid, servicedefinitionid, planid, " +
-                "organizationguid, spaceguid) VALUES (?, ?, ?, ?, ?)", parameterMap);
+                "organizationguid, spaceguid, creds) VALUES (?, ?, ?, ?, ?, ?)", parameterMap);
     }
 
     public void deleteDatabase(String instanceId) throws SQLException {
@@ -101,6 +114,7 @@ public class PostgreSQLDatabase {
         serviceInstance.setOrganizationGuid(organizationGuid);
         serviceInstance.setPlanId(planId);
         serviceInstance.setSpaceGuid(spaceGuid);
+        serviceInstance.setCredentials(result.get("creds"));
         return serviceInstance;
     }
 
@@ -109,14 +123,55 @@ public class PostgreSQLDatabase {
         return Collections.emptyList();
     }
 
-
-    public void createRoleForInstance(String instanceId, String bindingId) throws SQLException {
+    public void createRoleForInstance(String instanceId) throws SQLException {
         Utils.checkValidUUID(instanceId);
-        Utils.checkValidUUID(bindingId);
-        executeUpdate("CREATE ROLE \"" + bindingId + "\"");
-        //executeUpdate("ALTER DATABASE \"" + instanceId + "\" OWNER TO \"" + instanceId + "\"");
-        executeUpdate("GRANT ALL ON DATABASE \"" + instanceId + "\" TO \"" + bindingId + "\"");
+        executeUpdate("CREATE ROLE \"" + instanceId + "\"");
+        executeUpdate("GRANT  \"" + instanceId + "\" to \"pgadmin\"");
+        executeUpdate("GRANT ALL ON DATABASE \"" + instanceId + "\" TO \"" + instanceId + "\"");        
+
+      // fork a connection
+      SingleConnectionDataSource forkdataSource = new SingleConnectionDataSource();
+      //jdbc:postgresql://10.0.18.14:5432/sandbox?user=pgadmin&password=password
+      String[] parts = jdbcUrl.split("\\?");
+      String[] partsOther = parts[0].split("/");
+      String newconnection = partsOther[0]+"//"+partsOther[2]+"/"+instanceId+"?"+parts[1];
+      forkdataSource.setUrl(newconnection);
+      JdbcTemplate tpl= new JdbcTemplate(forkdataSource);
+      tpl.execute("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"" + instanceId + "\"");
+      //tpl.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON tables TO \"" + instanceId + "\"");
+      tpl.execute("ALTER DEFAULT PRIVILEGES FOR ROLE \""+instanceId+"\" IN SCHEMA public GRANT ALL ON TABLES TO \"" + instanceId + "\"");
+      tpl.execute("ALTER DEFAULT PRIVILEGES FOR ROLE \""+instanceId+"\" IN SCHEMA public GRANT ALL ON SEQUENCES TO \"" + instanceId + "\"");
+      tpl.execute("ALTER DEFAULT PRIVILEGES FOR ROLE \""+instanceId+"\" IN SCHEMA public GRANT ALL ON FUNCTIONS TO \"" + instanceId + "\"");      
+      forkdataSource.destroy();
+    
+      executeUpdate("ALTER DATABASE \"" + instanceId + "\" OWNER TO \"" + instanceId + "\"");
+
+    
     }
+
+    
+//    public void createRoleForInstance(String instanceId, String bindingId) throws SQLException {
+//        Utils.checkValidUUID(instanceId);
+//        Utils.checkValidUUID(bindingId);
+//        executeUpdate("CREATE ROLE \"" + bindingId + "\"");
+//        //executeUpdate("ALTER DATABASE \"" + instanceId + "\" OWNER TO \"" + instanceId + "\"");
+//        executeUpdate("GRANT ALL ON DATABASE \"" + instanceId + "\" TO \"" + bindingId + "\"");
+//        
+//        // fork a connection
+//        //DriverManagerDataSource dataSource = new DriverManagerDataSource();
+//        SingleConnectionDataSource forkdataSource = new SingleConnectionDataSource();
+//        //jdbc:postgresql://10.0.18.14:5432/sandbox?user=pgadmin&password=password
+//        String[] parts = jdbcUrl.split("\\?");
+//        String[] partsOther = parts[0].split("/");
+//        String newconnection = partsOther[0]+"//"+partsOther[2]+"/"+instanceId+"?"+parts[1];
+//        System.err.println(newconnection);
+//        forkdataSource.setUrl(newconnection);
+//        JdbcTemplate tpl= new JdbcTemplate(forkdataSource);
+//        tpl.execute("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"" + bindingId + "\"");
+//        forkdataSource.destroy();
+//        System.err.println("DONE with fork grant " + bindingId);
+//        
+//    }
 
     public void deleteRole(String bindingId) throws SQLException {
         Utils.checkValidUUID(bindingId);
@@ -133,15 +188,47 @@ public class PostgreSQLDatabase {
         Utils.checkValidUUID(serviceInstanceId);
         Utils.checkValidUUID(bindingId);
 
-        SecureRandom random = new SecureRandom();
-        String passwd = new BigInteger(130, random).toString(32);
+        
+        // hack - the user was already created for multi binding
+//        SecureRandom random = new SecureRandom();
+//        String passwd = new BigInteger(130, random).toString(32);
+//
+//        executeUpdate("CREATE USER \"" + bindingId + "\"");
+//        executeUpdate("ALTER USER \"" + bindingId + "\" LOGIN password '" + passwd + "'");
+//        executeUpdate("GRANT \"" + serviceInstanceId + "\" TO \"" + bindingId + "\"");// GRANT ROLE TO USER
+//        executeUpdate("ALTER ROLE \"" + bindingId + "\" INHERIT");
+//
+//        executeUpdate("GRANT ALL ON DATABASE \"" + serviceInstanceId + "\" TO \"" + bindingId + "\""); // will grant CONNECT
+//        
+//        // fork
+//        SingleConnectionDataSource forkdataSource = new SingleConnectionDataSource();
+//        //jdbc:postgresql://10.0.18.14:5432/sandbox?user=pgadmin&password=password
+//        String[] parts = jdbcUrl.split("\\?");
+//        String[] partsOther = parts[0].split("/");
+//        String newconnection = partsOther[0]+"//"+partsOther[2]+"/"+serviceInstanceId+"?user="+bindingId+"&password="+passwd;
+//        System.err.println(newconnection);
+//        forkdataSource.setUrl(newconnection);
+//        JdbcTemplate tpl= new JdbcTemplate(forkdataSource);
+//        tpl.execute("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"" + bindingId + "\"");
+//        //FOR ROLE \""+serviceInstanceId+"\" 
+//        tpl.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO \"" + bindingId + "\"");
+//        tpl.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO \"" + bindingId + "\"");
+//        tpl.execute("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO \"" + bindingId + "\"");
+//        forkdataSource.destroy();
+        
+        
+        //executeUpdate("ALTER DEFAULT PRIVILEGES FOR ROLE \""+serviceInstanceId+"\" IN SCHEMA public GRANT ALL ON TABLES TO \"" + bindingId + "\"");
+        //executeUpdate("ALTER DEFAULT PRIVILEGES FOR ROLE \""+serviceInstanceId+"\" IN SCHEMA public GRANT ALL ON SEQUENCES TO \"" + bindingId + "\"");
+        //executeUpdate("ALTER DEFAULT PRIVILEGES FOR ROLE \""+serviceInstanceId+"\" IN SCHEMA public GRANT ALL ON FUNCTIONS TO \"" + bindingId + "\"");
 
-        executeUpdate("ALTER ROLE \"" + bindingId + "\" LOGIN password '" + passwd + "'");
 
         URI uri = new URI(jdbcTemplate.getDataSource().getConnection().getMetaData().getURL().replace("jdbc:", ""));
 
         String dbURL = String.format("postgres://%s:%s@%s:%d/%s",
-        		bindingId, passwd,
+                // hack for multibinding
+        		serviceInstanceId,
+        		findServiceInstance(serviceInstanceId).getCredentials(),
+        		//bindingId, passwd,
                 uri.getHost(), uri.getPort() == -1 ? 5432 : uri.getPort(), serviceInstanceId);
 
         return dbURL;
@@ -150,8 +237,11 @@ public class PostgreSQLDatabase {
     public void unBindRoleFromDatabase(String dbInstanceId, String bindingId) throws SQLException{
         Utils.checkValidUUID(dbInstanceId);
         Utils.checkValidUUID(bindingId);
-        executeUpdate("ALTER ROLE \"" + bindingId + "\" NOLOGIN");
-        executeUpdate("REVOKE ALL ON  DATABASE \"" + dbInstanceId + "\" FROM \"" + bindingId + "\"");
+        executeUpdate("ALTER USER \"" + bindingId + "\" NOLOGIN");
+        executeUpdate("REVOKE \"" + dbInstanceId + "\" FROM \"" + bindingId + "\"");// REVOKE ROLE FROM USER
+        //executeUpdate("REVOKE ALL ON  DATABASE \"" + dbInstanceId + "\" FROM \"" + bindingId + "\"");
+        
+        //TODO remove USER
     }
     /**
      *
@@ -166,6 +256,9 @@ public class PostgreSQLDatabase {
 
         } catch (Exception e) {
             logger.error("Error while executing SQL UPDATE query '" + query + "'", e);
+            
+            System.err.println("Error while executing SQL UPDATE query '" + query + "'");
+            e.printStackTrace();
         }
 
     }

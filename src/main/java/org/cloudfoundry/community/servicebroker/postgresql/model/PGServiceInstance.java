@@ -22,6 +22,8 @@ public class PGServiceInstance {
 
 
     private String spaceGuid;
+    
+    private String credentials;
 
     public String getServiceInstanceId() {
         return serviceInstanceId;
@@ -62,4 +64,11 @@ public class PGServiceInstance {
     public void setSpaceGuid(String spaceGuid) {
         this.spaceGuid = spaceGuid;
     }
+
+	public void setCredentials(String credentials) {
+		this.credentials = credentials;		
+	}
+	public String getCredentials() {
+		return credentials;		
+	}
 }

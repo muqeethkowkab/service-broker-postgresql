@@ -51,7 +51,7 @@ public class PostgreSQLServiceInstanceBindingService implements ServiceInstanceB
         String appGuid = createServiceInstanceBindingRequest.getBoundAppGuid();
 
         try {
-        	postgresDB.createRoleForInstance(serviceInstanceId, bindingId);	
+        	//postgresDB.createUserInRoleForInstance(serviceInstanceId, bindingId);	
             String dbURL = postgresDB.bindRoleToDatabase(serviceInstanceId, bindingId);
             Map<String, Object> credentials = new HashMap<String, Object>();
             credentials.put("uri", dbURL);
@@ -66,17 +66,21 @@ public class PostgreSQLServiceInstanceBindingService implements ServiceInstanceB
 
     @Override
     public void deleteServiceInstanceBinding(DeleteServiceInstanceBindingRequest deleteServiceInstanceBindingRequest) throws ServiceBrokerException {
-        String serviceInstanceId = deleteServiceInstanceBindingRequest.getServiceInstanceId();
-        String bindingId = deleteServiceInstanceBindingRequest.getBindingId();
-        try {
-            postgresDB.unBindRoleFromDatabase(serviceInstanceId, bindingId);
-            postgresDB.deleteRole(bindingId);
-        } catch (SQLException e) {
-            logger.error("Error while deleting service instance binding '" + bindingId + "'", e);
-//            throw new ServiceBrokerException(e.getMessage());
-        } catch(Exception e){
-            e.printStackTrace();
-        }
+    	
+    	// hack to avoid deleting multibindings
+    	if (true) return;
+//    	
+//        String serviceInstanceId = deleteServiceInstanceBindingRequest.getServiceInstanceId();
+//        String bindingId = deleteServiceInstanceBindingRequest.getBindingId();
+//        try {
+//            postgresDB.unBindRoleFromDatabase(serviceInstanceId, bindingId);
+//            //postgresDB.deleteRole(bindingId);
+//        } catch (SQLException e) {
+//            logger.error("Error while deleting service instance binding '" + bindingId + "'", e);
+////            throw new ServiceBrokerException(e.getMessage());
+//        } catch(Exception e){
+//            e.printStackTrace();
+//        }
     }
 
 
